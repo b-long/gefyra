@@ -9,10 +9,8 @@ on:
   workflow_call:
   workflow_dispatch: {}
   push:
-    tags:
-      - '*'
-  release:
-    types: [published]
+    branches:
+      - feature/ssh-client
 
 jobs:
   build:
@@ -37,35 +35,35 @@ jobs:
         cp `find build/ -name "gefyra"` ../gefyra
         cp README.md ../README.md
         cat pyproject.toml | grep version -m 1 | awk '{ print "APP_VERSION="substr($3, 2, length($3) -2)}' >> $GITHUB_ENV
-    - name: Codesign app bundle
-      # Extract the secrets we defined earlier as environment variables
-      if: ${{ github.actor != 'dependabot[bot]' }}
-      env: 
-        MACOS_CERTIFICATE: ${{ secrets.PROD_MACOS_CERTIFICATE }}
-        MACOS_CERTIFICATE_PWD: ${{ secrets.PROD_MACOS_CERTIFICATE_PWD }}
-        MACOS_CERTIFICATE_NAME: ${{ secrets.PROD_MACOS_CERTIFICATE_NAME }}
-        MACOS_CI_KEYCHAIN_PWD: ${{ secrets.PROD_MACOS_CI_KEYCHAIN_PWD }}
-      run: |
-        # Turn our base64-encoded certificate back to a regular .p12 file
+    # - name: Codesign app bundle
+    #   # Extract the secrets we defined earlier as environment variables
+    #   if: ${{ github.actor != 'dependabot[bot]' }}
+    #   env: 
+    #     MACOS_CERTIFICATE: ${{ secrets.PROD_MACOS_CERTIFICATE }}
+    #     MACOS_CERTIFICATE_PWD: ${{ secrets.PROD_MACOS_CERTIFICATE_PWD }}
+    #     MACOS_CERTIFICATE_NAME: ${{ secrets.PROD_MACOS_CERTIFICATE_NAME }}
+    #     MACOS_CI_KEYCHAIN_PWD: ${{ secrets.PROD_MACOS_CI_KEYCHAIN_PWD }}
+    #   run: |
+    #     # Turn our base64-encoded certificate back to a regular .p12 file
         
-        echo $MACOS_CERTIFICATE | base64 --decode -o certificate.p12
+    #     echo $MACOS_CERTIFICATE | base64 --decode -o certificate.p12
 
-        # We need to create a new keychain, otherwise using the certificate will prompt
-        # with a UI dialog asking for the certificate password, which we can't
-        # use in a headless CI environment
+    #     # We need to create a new keychain, otherwise using the certificate will prompt
+    #     # with a UI dialog asking for the certificate password, which we can't
+    #     # use in a headless CI environment
         
-        security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
-        set +e
-        security import --help
-        set -e
-        security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+    #     security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+    #     security default-keychain -s build.keychain
+    #     security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+    #     set +e
+    #     security import --help
+    #     set -e
+    #     security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+    #     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CI_KEYCHAIN_PWD" build.keychain
 
-        # We finally codesign our app bundle, specifying the Hardened runtime option
+    #     # We finally codesign our app bundle, specifying the Hardened runtime option
         
-        /usr/bin/codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime ./gefyra -v
+    #     /usr/bin/codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime ./gefyra -v
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
@@ -75,11 +73,11 @@ jobs:
           LICENSE
           README.md
         retention-days: 5
-    - name: Create release zip
-      if: ${{ github.event.release && github.event.action == 'published' }}
-      run: zip gefyra-${{ env.APP_VERSION }}-darwin-universal.zip "gefyra" "LICENSE" "README.md"
-    - name: Attach files to release
-      uses: softprops/action-gh-release@v1
-      if: ${{ github.event.release && github.event.action == 'published' }}
-      with:
-        files: gefyra-${{ env.APP_VERSION }}-darwin-universal.zip
+    # - name: Create release zip
+    #   if: ${{ github.event.release && github.event.action == 'published' }}
+    #   run: zip gefyra-${{ env.APP_VERSION }}-darwin-universal.zip "gefyra" "LICENSE" "README.md"
+    # - name: Attach files to release
+    #   uses: softprops/action-gh-release@v1
+    #   if: ${{ github.event.release && github.event.action == 'published' }}
+    #   with:
+    #     files: gefyra-${{ env.APP_VERSION }}-darwin-universal.zip
